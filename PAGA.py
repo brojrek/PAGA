@@ -78,8 +78,7 @@ class Chromosome:
             else:
                 row = self.alphabet[character_A]
                 col = self.alphabet[character_B]
-
-            score = score + self.matrix[row, col]
+                score = score + self.matrix[row, col]
         self.score = score
         
     def get_sequences(self):
@@ -142,6 +141,75 @@ class Chromosome:
                 self.sequence_A = self.sequence_A[:idx] + self.sequence_A[idx+1:]
                 self.sequence_B = self.sequence_B[:idx] + self.sequence_B[idx+1:]
 
+    def gap_indexes(self, seq):
+        indexes = []
+        for idx in range(len(seq)-1, 0, -1):
+            if seq[idx] == '-':
+                indexes.append(idx)
+        return indexes
+    
+    def gap_sections_indexes(self, seq):
+        gap_sections = []
+
+        recording = False
+        for idx in range(len(seq)-1, 0, -1):
+            if seq[idx] == '-':
+                if not recording:
+                    recording = True
+                    idx_end = idx
+            else:
+                if recording:
+                    recording = False
+                    gap_sections.append((idx+1, idx_end))
+        return gap_sections
+    '''
+    def randomly_swap_index(idx, seq):
+    # if idx is the first index, move it right (only option)
+        if idx == 0:
+            seq = seq[1] + "-" + seq[2:]
+        # if idx is the last index, move it left (only option)
+        elif idx == len(seq) - 1:
+            seq = seq[:-2] + "-" + seq[-2]
+        # if idx is not at beginning nor at end of a sequence, randomly decide whether to move it left or right
+        else:
+            coin_flip = random.randint(0, 1)
+            # move right
+            if coin_flip == 0: 
+                seq = seq[:idx] + seq[idx+1] + "-" + seq[idx+2:] 
+            # move left
+            else: 
+                seq = seq[:idx-1] + "-" + seq[idx-1] + seq[idx+1:] 
+        return seq
+    '''
+    def randomly_swap_indexes(self, seq, idx_start, idx_end = None):
+        '''
+        Asserting attempt to move whole string (idx_start = 0 and idx_end = len(seq))
+        This scenario is not expected in our class.
+        '''
+        if idx_end == None:
+            idx_end = idx_start
+
+        assert not (idx_start == 0 and idx_end == len(seq))
+        sliced = seq[idx_start:idx_end+1]
+
+        # if idx_start is the first index, move it right (only option)
+        if idx_start == 0:
+            seq = seq[idx_end+1] + sliced + seq[idx_end+2:]
+
+        # if idx_end is the last index, move it left (only option)
+        elif idx_end == len(seq) - 1:
+            seq = seq[:idx_start-1] + sliced + seq[idx_start-1]
+
+        # in other cases, randomly decide whether to move it left or right
+        else:
+            coin_flip = random.randint(0, 1)
+            # move right
+            if coin_flip == 0: 
+                seq = seq[:idx_start] + seq[idx_end+1] + sliced + seq[idx_end+2:]
+            # move left
+            else: 
+                seq = seq[:idx_start-1] + sliced + seq[idx_start-1] + seq[idx_end+1:]
+        return seq
 
     # Mutation: Prolong existing gaps. [Look for local optimum.]
     def offspring_mutate_prolongation(self):
@@ -295,14 +363,49 @@ class Chromosome:
         offspring = type(self)(sequence_A, sequence_B, (self.matrix, self.alphabet), self.penalty)
 
         return offspring
-
+    
     # Mutation: Move a single gap by one index to the left or right.
     def offspring_mutate_move_gap(self):
-        pass #TODO
+        sequence_A = self.sequence_A
+        sequence_B = self.sequence_B
 
-    # Mutation: Move a whole section of gaps by one index to the left or right.
+        gaps_A = self.gap_indexes(sequence_A)
+        gaps_B = self.gap_indexes(sequence_B)
+
+        if len(gaps_A) > 0:
+            # randomly select one gap to be moved
+            idx = random.choice(gaps_A)
+            sequence_A = self.randomly_swap_indexes(sequence_A, idx)
+
+        if len(gaps_B) > 0:
+            # randomly select one gap to be moved
+            idx = random.choice(gaps_B)
+            sequence_B = self.randomly_swap_indexes(sequence_B, idx)
+
+        offspring = type(self)(sequence_A, sequence_B, (self.matrix, self.alphabet), self.penalty)
+        
+        return offspring
+    
+        # Mutation: Move a whole section of gaps by one index to the left or right.
     def offspring_mutate_move_section(self):
-        pass #TODO
+        sequence_A = self.sequence_A
+        sequence_B = self.sequence_B
+
+        gap_sections_A = self.gap_sections_indexes(sequence_A)
+        gap_sections_B = self.gap_sections_indexes(sequence_B)
+
+        if len(gap_sections_A) > 0:
+            # randomly select one gap to be moved
+            idx = random.choice(gap_sections_A)
+            sequence_A = self.randomly_swap_indexes(sequence_A, idx[0], idx[1])
+
+        if len(gap_sections_B) > 0:
+            # randomly select one gap to be moved
+            idx = random.choice(gap_sections_B)
+            sequence_B = self.randomly_swap_indexes(sequence_B, idx[0], idx[1])
+
+        offspring = type(self)(sequence_A, sequence_B, (self.matrix, self.alphabet), self.penalty)
+        return offspring
 
 class Population:
     '''
@@ -324,11 +427,14 @@ seq1 = read_fasta("ACE2_[Homo_sapiens].fasta")
 seq2 = read_fasta("ACE2_[Rhinolophus_affinis].fasta")
 
 ch = Chromosome(seq1, seq2, load_score_matrix("BLOSUM62.txt"), 5)
+
 ch_prolonged = ch.offspring_mutate_prolongation()
 ch_added_one = ch.offspring_mutate_add_gaps(False)
 ch_added_multiple = ch.offspring_mutate_add_gaps(True)
 ch_shuffled_gaps = ch.offspring_mutate_shuffle_gaps()
 ch_removed_gaps = ch.offspring_mutate_remove_gaps()
+ch_moved_gap = ch.offspring_mutate_move_gap()
+ch_moved_section = ch.offspring_mutate_move_section()
 
 print("RAW")
 print(ch.get_sequences())
@@ -353,3 +459,11 @@ print(ch_shuffled_gaps.get_score())
 print("REMOVED")
 print(ch_removed_gaps.get_sequences())
 print(ch_removed_gaps.get_score())
+
+print("MOVED GAP")
+print(ch_moved_gap.get_sequences())
+print(ch_moved_gap.get_score())
+
+print("MOVED SECTION")
+print(ch_moved_section.get_sequences())
+print(ch_moved_section.get_score())
