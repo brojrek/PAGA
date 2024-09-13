@@ -16,6 +16,7 @@ from Population import *
 # i.e. if number of parents = 10
 # and number of  mutations = 7
 # population_size must be greater than 10 + 10*7 = 80 (in that case, 100 would be a good minimum population_size)
+#TODO Input validation
 #TODO Window displaying alignment progress live
 #TODO Mutation split gap from section? Not sure
 
