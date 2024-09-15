@@ -1,7 +1,7 @@
 ## Table of contents
 * [About](#about)
 * [Technologies](#technologies)
-* [How to use](how-to-use)
+* [How to use](#how-to-use)
 
 ## General info
 PAGA (Pairwise Alignment with Genetic Algorithm) is an implementation of genetic algorithm for sequence alignment.
