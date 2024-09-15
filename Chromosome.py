@@ -176,12 +176,19 @@ class Chromosome:
 
         len_A = len(self.sequence_A)
         len_B = len(self.sequence_B)
+        coin_flip = random.randint(0, 1)
 
         if len_A > len_B:
-            self.sequence_B = self.sequence_B + ("-" * (len_A-len_B))
+            if coin_flip == 0:
+                self.sequence_B = ("-" * (len_A-len_B)) + self.sequence_B
+            else:
+                self.sequence_B = self.sequence_B + ("-" * (len_A-len_B))
             
         if len_A < len_B:
-            self.sequence_A = self.sequence_A + ("-" * (len_B-len_A))
+            if coin_flip == 0:
+                self.sequence_A =  ("-" * (len_B-len_A)) + self.sequence_A
+            else:
+                self.sequence_A = self.sequence_A + ("-" * (len_B-len_A))
 
         self.gap_reduction()
 

@@ -70,18 +70,13 @@ class Master:
     
     def run_alignment(self):
         #TODO Validation of input parameters
-        print(type(self.active_sequence_frame))
-        if type(self.active_sequence_frame) == SearchIDFrame:
-            sequence_A_header, self.sequence_A = ncbi.sequence_from_id(self.active_sequence_frame.sequence_A_id.get(), self.active_sequence_frame.database.get(), self.active_sequence_frame.email.get())
-            sequence_B_header, self.sequence_B = ncbi.sequence_from_id(self.active_sequence_frame.sequence_B_id.get(), self.active_sequence_frame.database.get(), self.active_sequence_frame.email.get())
-            self.sequence_A_header = tk.StringVar(value = sequence_A_header)
-            self.sequence_B_header = tk.StringVar(value = sequence_B_header)
-        else:
-            self.sequence_A = self.active_sequence_frame.sequence_A
-            self.sequence_B = self.active_sequence_frame.sequence_B
-            self.sequence_A_header = self.active_sequence_frame.sequence_A_header
-            self.sequence_B_header = self.active_sequence_frame.sequence_B_header
 
+        self.sequence_A = self.active_sequence_frame.sequence_A
+        self.sequence_B = self.active_sequence_frame.sequence_B
+        self.sequence_A_header = self.active_sequence_frame.sequence_A_header
+        self.sequence_B_header = self.active_sequence_frame.sequence_B_header
+
+        print("Active frame: " + str(type(self.active_sequence_frame)))
         print("Ran on sequences:")
         print(self.sequence_A)
         print(self.sequence_B)  
@@ -313,6 +308,15 @@ class SearchIDFrame:
         self.frame = tk.Frame(self.master, width = self.master.winfo_width(), height = self.master.winfo_height())
         self.frame.grid(row=0, column=0, padx=10, pady=90, rowspan=1)
 
+        self.sequence_A = ""
+        self.sequence_B = ""
+
+        self.sequence_A_header = tk.StringVar(value = "")
+        self.sequence_B_header = tk.StringVar(value = "")
+
+        self.sequence_A_header_display = tk.StringVar(value = "No sequence selected")
+        self.sequence_B_header_display = tk.StringVar(value = "No sequence selected")
+
         #database
         self.database = tk.StringVar(value="protein")
         database_label = tk.Label(self.frame, text = 'Database', font=('Times',11, 'bold'))
@@ -338,21 +342,50 @@ class SearchIDFrame:
 
         #Sequence 1.
         self.sequence_A_id = tk.StringVar(value = "")
+
+        loaded_A_label = tk.Label(self.frame, textvariable = self.sequence_A_header_display, font=('Times', 10), padx=10, pady=10)
         sequence_A_id_label = tk.Label(self.frame, text = 'Sequence 1. ID*', font=('Times', 11, 'bold'), padx=10, pady=10)
         sequence_A_id_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=self.sequence_A_id)
-
-        sequence_A_id_label.grid(row=3,column=0, sticky="NW")
-        sequence_A_id_entry.grid(row=3,column=1, pady=10, sticky="NE")
+        search_buttonA = ttk.Button(self.frame, text='Search...', command=lambda : self.search_button_press(self.database.get(), self.email.get(), self.sequence_A_id.get(), 0))
+        
+        loaded_A_label.grid(row=3,column=0, columnspan=3, sticky="W")
+        sequence_A_id_label.grid(row=4,column=0, sticky="NW")
+        sequence_A_id_entry.grid(row=4,column=1, pady=10, sticky="NE")
+        search_buttonA.grid(row=4,column=2, pady=10, sticky="NE")
 
         #Sequence 2.
         self.sequence_B_id = tk.StringVar(value = "")
-        term_label = tk.Label(self.frame, text = 'Sequence 2. ID*', font=('Times', 11, 'bold'), padx=10, pady=10)
-        term_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=self.sequence_B_id)
+        loaded_B_label = tk.Label(self.frame, textvariable = self.sequence_B_header_display, font=('Times', 10), padx=10, pady=10)
+        sequence_B_id_label = tk.Label(self.frame, text = 'Sequence 2. ID*', font=('Times', 11, 'bold'), padx=10, pady=10)
+        sequence_B_id_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=self.sequence_B_id)
+        search_buttonB = ttk.Button(self.frame, text='Search...', command=lambda : self.search_button_press(self.database.get(), self.email.get(), self.sequence_B_id.get(), 1))
+        
+        loaded_B_label.grid(row=5,column=0, columnspan=3, sticky="W")
+        sequence_B_id_label.grid(row=6,column=0, sticky="NW")
+        sequence_B_id_entry.grid(row=6,column=1, pady=10, sticky="NE")
+        search_buttonB.grid(row=6,column=2, pady=10, sticky="NE")
 
-        term_label.grid(row=4,column=0, sticky="NW")
-        term_entry.grid(row=4,column=1, pady=10, sticky="NE")
-
-        self.frame.grid_forget()
+        self.frame.grid_forget() #Initially file frame will be displayed.
+        
+    def search_button_press(self, database, email, id, sequence_number):
+        sequence_header, sequence = ncbi.sequence_from_id(id, database, email)
+        print(sequence_header)
+        print(sequence)
+        if sequence_number == 0:
+            self.sequence_A_header = tk.StringVar(value = sequence_header)
+            if len(sequence_header) > 50:
+                self.sequence_A_header_display.set(value = sequence_header[:47] + "...")
+            else:
+                self.sequence_A_header_display.set(value = sequence_header)
+            self.sequence_A = sequence
+            
+        else: #sequence_number == 1:
+            self.sequence_B_header = tk.StringVar(value = sequence_header)
+            if len(sequence_header) > 50:
+                self.sequence_B_header_display.set(value = sequence_header[:47] + "...")
+            else:
+                self.sequence_B_header_display.set(value = sequence_header)
+            self.sequence_B = sequence
 
 class FileFrame:
     def __init__(self, master):
@@ -370,8 +403,8 @@ class FileFrame:
         self.sequence_A_header = tk.StringVar(value = "")
         self.sequence_B_header = tk.StringVar(value = "")
 
-        self.sequence_A_header_display = tk.StringVar(value = "")
-        self.sequence_B_header_display = tk.StringVar(value = "")
+        self.sequence_A_header_display = tk.StringVar(value = "No sequence selected")
+        self.sequence_B_header_display = tk.StringVar(value = "No sequence selected")
 
 
         #file1
