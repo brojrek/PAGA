@@ -177,18 +177,16 @@ class Chromosome:
         len_A = len(self.sequence_A)
         len_B = len(self.sequence_B)
         coin_flip = random.randint(0, 1)
-
         if len_A > len_B:
             if coin_flip == 0:
-                self.sequence_B = ("-" * (len_A-len_B)) + self.sequence_B
-            else:
                 self.sequence_B = self.sequence_B + ("-" * (len_A-len_B))
-            
+            else:
+                self.sequence_B = ("-" * (len_A-len_B)) + self.sequence_B 
         if len_A < len_B:
             if coin_flip == 0:
-                self.sequence_A =  ("-" * (len_B-len_A)) + self.sequence_A
-            else:
                 self.sequence_A = self.sequence_A + ("-" * (len_B-len_A))
+            else:
+                self.sequence_A = ("-" * (len_B-len_A)) + self.sequence_A
 
         self.gap_reduction()
 
@@ -199,7 +197,7 @@ class Chromosome:
         Removes unnecessary gaps (when both sequences have gap on the same index).
         """
         
-        for idx in range(self.get_length()-1, 0, -1):
+        for idx in range(self.get_length()-1, -1, -1):
             if self.sequence_A[idx] == '-' and self.sequence_B[idx] == '-':
                 self.sequence_A = self.sequence_A[:idx] + self.sequence_A[idx+1:]
                 self.sequence_B = self.sequence_B[:idx] + self.sequence_B[idx+1:]

@@ -11,7 +11,7 @@ The purpose of this implementation is of explorational character. While there ex
 According to https://pubmed.ncbi.nlm.nih.gov/11747615/, multiple sequence alignment is a NP-hard problem, therefore finding a heuristic solution (like a genetic algorithm) to this problem is a reasonable approach. PAGA's purpose is to propose and verify this approach for a pair of sequences with possibility to further develop a multiple sequences alignment use.
 
 ## Technologies
-PAGA is written in Python 3.12.2 and uses biopython and numpy libraries. GUI is created using tkinter.
+PAGA is written in Python 3.12.2 and uses threading, biopython and numpy libraries. GUI is created using tkinter.
 
 ## How to use
 
@@ -66,3 +66,14 @@ Frame 4 is reponsible for selecting and setting active mutations:
 Align! button runs an alignment. As input sequences it uses these loaded in currently active source frame. Both sequences and alignment settings, including scoring matrix, must be provided.
 
 After alignment is finished, result window will show up. You can save results to .txt file using "Save as..." button.
+
+### Tips
+- You can also set a really (really, like 9999999) maximum number of generations and reasonable number (like 100) of maximum generations without improvement. Algorithm will eventually stop returning local maximum it found, not limited by maximum number of generations. This will be especially helpful with particularly demanding alignments of long and diverse sequences.
+
+For example, aligning sequences with ids 2462630655 and 2272752337 with maximum generations = 1000 and maximum generations without improvement = 40 resulted with highscore of 1000 out of 8525 (according to NW alignment). Same alignment with maximum generations = 300000 and maximum generations without improvement = 100 resulted in score of 8390 out of 8525 (in 347 iterations, 28 seconds).
+
+Don't be afraid to set ridiculously high values of these parameters!
+
+- One of the flaws of the genetic algorithm is that it may focus too much on a single local maximum, which may be far from global maximum. Try to run the same alignment multiple times looking for better results.
+
+- Progress bar showed during alignment represents a current generation number divided by maximum number of generations. Usually it won't fill to 100% since alignment will stop after set number of generations without improvement. Also, if you set a very high maximum generations number, you may not notice it progressing at all.

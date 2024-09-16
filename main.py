@@ -10,6 +10,7 @@ from NW import *
 import ncbiutils as ncbi
 from Chromosome import *
 from Population import *
+from threading import Thread
 
 #TODO Validate somewhere -> number of parents (got from selections - will be added in the future) 
 # plus number of parents times a number of mutations must be LESS than population_size.
@@ -67,24 +68,74 @@ class Master:
 
         self.file_frame.frame.grid_forget()
         self.search_frame.frame.grid_forget()
-    
-    def run_alignment(self):
+
+    def run_alignment_button_pressed(self):
         #TODO Validation of input parameters
 
+        self.align_progress = tk.Toplevel(self.master)
+
+        self.align_progress.title("Alignment in progress")
+        window_width = 170
+        window_height = 60
+
+        # get the screen dimension
+        screen_width = self.align_progress.winfo_screenwidth()
+        screen_height = self.align_progress.winfo_screenheight()
+
+        # find the center point
+        center_x = int(screen_width/2 - window_width/2)
+        center_y = int(screen_height/2 - window_height/2)
+
+        # set the position of the window to the center of the screen
+        self.align_progress.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+        self.align_progress.resizable('False', 'False')
+
+        self.progressbar = ttk.Progressbar(master = self.align_progress, orient=tk.HORIZONTAL, length=160, maximum = self.alignment_frame.maximum_generations.get()+1)
+        self.progressbar.grid(row = 1, padx = 5)
+
+        label = ttk.Label(self.align_progress, text="Aligning...", font=20)
+        label.grid(row = 0)
+        self.align()
+
+    def align(self):
+
+        # Search for sequences in a new thread
+        t = Thread(target= lambda: self.run_alignment())
+        t.start()
+
+        # Start checking periodically if the thread has finished.
+        self.schedule_check(t)
+    
+    def schedule_check(self, t):
+        """
+        Schedule the execution of the `check_if_done()` function after
+        one second.
+        """
+        self.master.after(1000, lambda: self.check_if_done(t))
+
+    def check_if_done(self, t):
+        # If the thread has finished, close the window
+        if not t.is_alive():
+            self.progressbar.stop()
+            self.align_progress.withdraw()
+            self.align_progress.quit()
+            self.align_progress.update() 
+            AlignmentResultWindow(self, [self.sequence_A_header, self.sequence_B_header], [self.sequence_A, self.sequence_B], self.ga_time_diff, self.ga_population.population[0], self.ga_nw_results)
+
+        else:
+            # Otherwise check again after one second.
+            self.schedule_check(t)
+            
+    def run_alignment(self):
         self.sequence_A = self.active_sequence_frame.sequence_A
         self.sequence_B = self.active_sequence_frame.sequence_B
         self.sequence_A_header = self.active_sequence_frame.sequence_A_header
         self.sequence_B_header = self.active_sequence_frame.sequence_B_header
 
-        print("Active frame: " + str(type(self.active_sequence_frame)))
-        print("Ran on sequences:")
-        print(self.sequence_A)
-        print(self.sequence_B)  
         if len(self.sequence_A) == 0:
             print("Something went wrong, no sequences passed to alignment.")
             return ""
         parent_chromosome = Chromosome(self.sequence_A, self.sequence_B, [self.alignment_frame.matrix, self.alignment_frame.alphabet], self.alignment_frame.gap_penalty.get())#, self.mutations_frame.gap_prolong_odds.get(), self.mutations_frame.gap_shuffle_odds.get(), self.mutations_frame.gap_remove_odds.get(), self.mutations_frame.gaps_limit_factor.get())
-        print(parent_chromosome.score)
 
         # Set Chromosome proporties
         parent_chromosome.gap_prolong_odds = self.mutations_frame.gap_prolong_odds.get()
@@ -108,15 +159,14 @@ class Master:
         population.parent_number = self.alignment_frame.parent_number.get()
 
         # Set stuff for genetic algorythm
-        stop = False
         generations_without_improvement = 0
         highest_score = 0
-        
+
+        self.progressbar.start()
         start_time = time.time()
         for n in range(self.alignment_frame.maximum_generations.get()):
+            self.progressbar.step(n/self.alignment_frame.maximum_generations.get())
             print('Iteration: ' + str(n) + ', ' + str(time.time() - start_time) + ' seconds passed. Highscore: ' + str(population.population[0].score))
-            sys.stdout.flush()
-            time.sleep(1)
             if highest_score < population.population[0].score:
                 highest_score = population.population[0].score
                 generations_without_improvement = 0
@@ -133,18 +183,15 @@ class Master:
             else: #self.alignment_frame.selection.get() == "Truncation"
                 population.new_generation(population.selection_truncation())
 
+        self.ga_population = population
         end_time = time.time()
-        time_diff = round(end_time - start_time, 2)
+        self.ga_time_diff = round(end_time - start_time, 2)
 
         print("PAGA finished in " + str(n) + " generations.")
-        print("Total execution time: " + str(time_diff) + " seconds.")
+        print("Total execution time: " + str(self.ga_time_diff) + " seconds.")
         #nw_results -> [[seq1, seq2], score]
-        nw_results = nw_alignment(self.sequence_A, self.sequence_B, [self.alignment_frame.matrix, self.alignment_frame.alphabet], self.alignment_frame.gap_penalty.get())
-        AlignmentResultWindow(self, [self.sequence_A_header, self.sequence_B_header], [self.sequence_A, self.sequence_B], time_diff, population.population[0], nw_results)
-
+        self.ga_nw_results = nw_alignment(self.sequence_A, self.sequence_B, [self.alignment_frame.matrix, self.alignment_frame.alphabet], self.alignment_frame.gap_penalty.get())
         
-        print(population.population[0].score, population.population[0].sequence_A, population.population[0].sequence_B)
-        #print([x.score for x in population.population])
 
 class SearchFrame:
     def __init__(self, master):
@@ -290,17 +337,13 @@ class SearchFrame:
             self.sequence_A_header.set(value = str(selected_name))
             self.sequence_A_header_display.set(value = str(selected_name_display))
             self.sequence_A = ncbi.sequence_from_id(str(selected_id), self.database.get(), self.email.get())[1]
-            print(self.sequence_A)
         else:
             self.sequence_B_id.set(value = str(selected_id))
             self.sequence_B_header.set(value = str(selected_name))
             self.sequence_B_header_display.set(value = str(selected_name_display))
             self.sequence_B = ncbi.sequence_from_id(str(selected_id), self.database.get(), self.email.get())[1]
-            print(self.sequence_B)
         entry_id.delete(0, "end")
         entry_id.insert(0, str(selected_id))
-
-        print(selected_id, selected_name)
 
 class SearchIDFrame:
     def __init__(self, master):
@@ -369,8 +412,6 @@ class SearchIDFrame:
         
     def search_button_press(self, database, email, id, sequence_number):
         sequence_header, sequence = ncbi.sequence_from_id(id, database, email)
-        print(sequence_header)
-        print(sequence)
         if sequence_number == 0:
             self.sequence_A_header = tk.StringVar(value = sequence_header)
             if len(sequence_header) > 50:
@@ -378,7 +419,7 @@ class SearchIDFrame:
             else:
                 self.sequence_A_header_display.set(value = sequence_header)
             self.sequence_A = sequence
-            
+
         else: #sequence_number == 1:
             self.sequence_B_header = tk.StringVar(value = sequence_header)
             if len(sequence_header) > 50:
@@ -500,7 +541,7 @@ class AlignmentFrame:
         population_size_entry.grid(row=1,column=1, sticky="W")
 
         #Maximum_generations
-        self.maximum_generations = tk.IntVar(value = 100)
+        self.maximum_generations = tk.IntVar(value = 300)
         maximum_generations_label = tk.Label(self.frame, text = 'Max. generations', font=('Times', 11, 'bold'), padx=10, pady=10)
         maximum_generations_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=self.maximum_generations)
 
@@ -508,7 +549,7 @@ class AlignmentFrame:
         maximum_generations_entry.grid(row=2,column=1, sticky="W")
 
         #Max_generations_without_improvement
-        self.max_generations_without_improvement = tk.IntVar(value = 20)
+        self.max_generations_without_improvement = tk.IntVar(value = 40)
         max_generations_without_improvement_label = tk.Label(self.frame, text = 'Max. w/o improvement', font=('Times', 11, 'bold'), padx=10, pady=10)
         max_generations_without_improvement_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=self.max_generations_without_improvement)
 
@@ -561,7 +602,7 @@ class AlignmentFrame:
         #Run
         run_style = ttk.Style()
         run_style.configure('my.TButton', font=('Times', 20))
-        run_button = ttk.Button(self.frame, text='Align!', width=20, style='my.TButton', command = master.run_alignment)
+        run_button = ttk.Button(self.frame, text='Align!', width=20, style='my.TButton', command = master.run_alignment_button_pressed)
         run_button.grid(row=10,column=0, pady=10,columnspan=2, sticky="NE")
 
     def read_matrix_file(self, entry):
@@ -741,7 +782,6 @@ class SearchResultWindow:
  
         #add data
         for n in range(0, len(results)):
-            #print(len(results[n]))
             self.tree.insert(parent = '', index = 'end', iid = n, text = '', values = (n+1, results[n][0], results[n][1], len(results[n][2])))
 
         
@@ -754,7 +794,6 @@ class SearchResultWindow:
 
     def select_item(self, event):
         current_item = self.tree.item(self.tree.focus())
-        print(current_item)
         self.search.selected_result(current_item['values'][1], current_item['values'][2], self.sequence_number, self.entry)
         
         self.result_window.destroy()
