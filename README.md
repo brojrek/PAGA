@@ -3,7 +3,7 @@
 * [Technologies](#technologies)
 * [How to use](#how-to-use)
 
-## General info
+## About
 PAGA (Pairwise Alignment with Genetic Algorithm) is an implementation of genetic algorithm for sequence alignment.
 
 The purpose of this implementation is of explorational character. While there exist tools performing pairwise alignment relatively fast and returning optimal result (i.e. Needleman-Wunsh algorithm), there is not such "perfect" tool for multiple sequences alignment.
