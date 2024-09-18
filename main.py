@@ -5,6 +5,7 @@ import tkinter as tk
 import datetime as dt
 import time
 import sys
+import re
 
 from NW import *
 import ncbiutils as ncbi
@@ -12,15 +13,42 @@ from Chromosome import *
 from Population import *
 from threading import Thread
 
-#TODO Validate somewhere -> number of parents (got from selections - will be added in the future) 
-# plus number of parents times a number of mutations must be LESS than population_size.
-# i.e. if number of parents = 10
-# and number of  mutations = 7
-# population_size must be greater than 10 + 10*7 = 80 (in that case, 100 would be a good minimum population_size)
-#TODO Input validation
-#TODO Window displaying alignment progress live
-#TODO Mutation split gap from section? Not sure
+def is_valid_email(email):
 
+    """Check if the email is a valid format."""
+
+    # Regular expression for validating an Email
+
+    regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
+
+    # If the string matches the regex, it is a valid email
+
+    if re.match(regex, email):
+
+        return True
+
+    else:
+
+        return False
+    
+def is_valid_date(date):
+
+    '''Check if the date is a valid format.'''
+
+    # Regular expression for validating a date
+
+    regex = r'[0-9]{4}\/[0-9]{2}\/[0-9]{2}'
+
+    # If the string matches the regex, it is a valid date
+
+    if re.match(regex, date):
+
+        return True
+
+    else:
+
+        return False
+    
 class Master:
     def __init__(self, master):
         self.master = master
@@ -70,7 +98,13 @@ class Master:
         self.search_frame.frame.grid_forget()
 
     def run_alignment_button_pressed(self):
-        #TODO Validation of input parameters
+        self.sequence_A = self.active_sequence_frame.sequence_A
+        self.sequence_B = self.active_sequence_frame.sequence_B
+        self.sequence_A_header = self.active_sequence_frame.sequence_A_header
+        self.sequence_B_header = self.active_sequence_frame.sequence_B_header
+
+        if not self.is_input_valid():
+            return "Alignment didn't run. Validation failed."
 
         self.align_progress = tk.Toplevel(self.master)
 
@@ -126,15 +160,7 @@ class Master:
             # Otherwise check again after one second.
             self.schedule_check(t)
             
-    def run_alignment(self):
-        self.sequence_A = self.active_sequence_frame.sequence_A
-        self.sequence_B = self.active_sequence_frame.sequence_B
-        self.sequence_A_header = self.active_sequence_frame.sequence_A_header
-        self.sequence_B_header = self.active_sequence_frame.sequence_B_header
-
-        if len(self.sequence_A) == 0:
-            print("Something went wrong, no sequences passed to alignment.")
-            return ""
+    def run_alignment(self):        
         parent_chromosome = Chromosome(self.sequence_A, self.sequence_B, [self.alignment_frame.matrix, self.alignment_frame.alphabet], self.alignment_frame.gap_penalty.get())#, self.mutations_frame.gap_prolong_odds.get(), self.mutations_frame.gap_shuffle_odds.get(), self.mutations_frame.gap_remove_odds.get(), self.mutations_frame.gaps_limit_factor.get())
 
         # Set Chromosome proporties
@@ -192,6 +218,118 @@ class Master:
         #nw_results -> [[seq1, seq2], score]
         self.ga_nw_results = nw_alignment(self.sequence_A, self.sequence_B, [self.alignment_frame.matrix, self.alignment_frame.alphabet], self.alignment_frame.gap_penalty.get())
         
+    def is_input_valid(self):
+        ''' Method validates all inputs before alignment. Returns False on first failed validation. '''
+        ### Source frame ###
+        # Input sequences
+        if len(self.sequence_A) == 0 or len(self.sequence_B) == 0:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'No sequences passed to alignment.')
+            return False
+
+        ### Alignment frame ###
+        # Scoring matrix
+        if len(self.alignment_frame.matrix) == 0 or len(self.alignment_frame.alphabet) == 0:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'No scoring matrix/alphabet passed to alignment.')
+            return False
+        
+        # Population size
+        try:
+            if not isinstance(self.alignment_frame.population_size.get(), int) or self.alignment_frame.population_size.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Population size must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Population size must be a positive integer number.')
+            return False
+        
+        # Max. generations
+        try:
+            if not isinstance(self.alignment_frame.maximum_generations.get(), int) or self.alignment_frame.maximum_generations.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. generations must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. generations must be a positive integer number.')
+            return False
+        
+        # Max. w/o improvement
+        try:
+            if not isinstance(self.alignment_frame.max_generations_without_improvement.get(), int) or self.alignment_frame.max_generations_without_improvement.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. w/o improvement must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. w/o improvement must be a positive integer number.')
+            return False
+        
+        # Parents selected
+        try:
+            if not isinstance(self.alignment_frame.parent_number.get(), int) or self.alignment_frame.parent_number.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Parents selected must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Parents selected must be a positive integer number.')
+            return False
+        
+        # Gap penalty
+        try:
+            if not isinstance(self.alignment_frame.gap_penalty.get(), int) or self.alignment_frame.gap_penalty.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap penalty must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap penalty must be a positive integer number.')
+            return False
+
+        ### Mutations frame ###
+        active_mutations = [x for x in [self.mutations_frame.mutation_add_single_gap.get(),
+                                        self.mutations_frame.mutation_add_multiple_gaps.get(),
+                                        self.mutations_frame.mutation_move_gap.get(),
+                                        self.mutations_frame.mutation_move_gaps_section.get(),
+                                        self.mutations_frame.mutation_prolongation.get(),
+                                        self.mutations_frame.mutation_shuffle_gaps.get(),
+                                        self.mutations_frame.mutation_remove_gap.get()] if x is True]
+        
+        # Population size must be able to contain all parents and their offspring.
+        if (self.alignment_frame.parent_number.get()*(len(active_mutations)+1)) > self.alignment_frame.population_size.get():
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Parents and their offspring ('+ str(self.alignment_frame.parent_number.get()*(len(active_mutations)+1)) +') will exceed population size (' + str(self.alignment_frame.population_size.get()) +'). \n\nPlease adjust input parameters by increasing population size, decreasing parents number or disabling mutations.')
+            return False
+
+        # Gap prolongation odds
+        try:
+            if not isinstance(self.mutations_frame.gap_prolong_odds.get(), int) or self.mutations_frame.gap_prolong_odds.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap prolongation odds must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap prolongation odds must be a positive integer number.')
+            return False
+
+        # Gap remove odds
+        try:
+            if not isinstance(self.mutations_frame.gap_remove_odds.get(), int) or self.mutations_frame.gap_remove_odds.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap remove odds must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap remove odds must be a positive integer number.')
+            return False
+
+        # Gap shuffle odds
+        try:
+            if not isinstance(self.mutations_frame.gap_shuffle_odds.get(), int) or self.mutations_frame.gap_shuffle_odds.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap shuffle odds must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gap shuffle odds must be a positive integer number.')
+            return False
+
+        # Gaps limit factor
+        try:
+            if not isinstance(self.mutations_frame.gaps_limit_factor.get(), int) or self.mutations_frame.gaps_limit_factor.get() <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gaps limit factor must be a positive integer number.')
+                return False
+        except tk.TclError:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Gaps limit factor must be a positive integer number.')
+            return False
+
+        return True
+    
+
 
 class SearchFrame:
     def __init__(self, master):
@@ -248,7 +386,7 @@ class SearchFrame:
         organism_entry.grid(row=4,column=1, pady=10, sticky="NE")
         
         #minlen
-        minlen = tk.IntVar(value = 0)
+        minlen = tk.IntVar(value = 1)
         minlen_label = tk.Label(self.frame, text = 'Min. length', font=('Times', 11, 'bold'), padx=10, pady=10)
         minlen_entry = tk.Entry(self.frame, font = ('Times',11,'normal'), textvariable=minlen)
 
@@ -322,8 +460,55 @@ class SearchFrame:
         SearchResultWindow(self, results, sequence_number, entry)
 
     def search_button_press(self, sequence_number, entry, email, database, term, organism, minlen, maxlen, fromdate, todate, retmax):
-        results = ncbi.search_button_clicked(email, database, term, organism, minlen, maxlen, fromdate, todate, retmax)
-        self.display_search(results, sequence_number, entry)
+        if self.search_is_valid(email, term, minlen, maxlen, fromdate, todate, retmax):
+            results = ncbi.search_button_clicked(email, database, term, organism, minlen, maxlen, fromdate, todate, retmax)
+            self.display_search(results, sequence_number, entry)
+
+    def search_is_valid(self, email, term, minlen, maxlen, fromdate, todate, retmax):
+        ''' Method to validate fields upon "Search..." button press. '''
+
+        # Email
+        if len(email) > 0:
+            if not is_valid_email(email):
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Email is invalid.')
+                return False
+        else:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Email cannot be empty.')
+            return False
+        
+        # Term
+        if len(term) <= 0:
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Term cannot be empty.')
+            return False
+        
+        # minlen
+        if minlen != "" or minlen != None:
+            if not minlen.isdigit() or int(minlen) <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Min. length must be a positive integer.')
+                return False
+        # maxlen
+        if maxlen != "" or maxlen != None:
+            if not maxlen.isdigit() or int(maxlen) <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. length must be a positive integer.')
+                return False
+        # retmax
+        if retmax != "" or retmax != None:
+            if not retmax.isdigit() or int(retmax) <= 0:
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Max. results must be a positive integer.')
+                return False
+
+        # From date
+        if len(fromdate) > 0:
+            if not is_valid_date(fromdate):
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'From date format is invalid.')
+                return False
+        
+        # To date
+        if len(todate) > 0:
+            if not is_valid_date(todate):
+                tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'To date format is invalid.')
+                return False
+        return True
 
     def selected_result(self, selected_id, selected_name, sequence_number, entry_id):
         
@@ -411,6 +596,9 @@ class SearchIDFrame:
         self.frame.grid_forget() #Initially file frame will be displayed.
         
     def search_button_press(self, database, email, id, sequence_number):
+        if not self.search_id_is_valid(email, id):
+            return ""
+        
         sequence_header, sequence = ncbi.sequence_from_id(id, database, email)
         if sequence_number == 0:
             self.sequence_A_header = tk.StringVar(value = sequence_header)
@@ -428,6 +616,25 @@ class SearchIDFrame:
                 self.sequence_B_header_display.set(value = sequence_header)
             self.sequence_B = sequence
 
+    def search_id_is_valid(self, email, id):
+        # Email
+        if email == "":
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Email cannot be empty.')
+            return False
+        
+        if not is_valid_email(email):
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Email format is invalid.')
+            return False
+        
+        # Id
+        if id == "":
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Id cannot be empty.')
+            return False
+        
+        if not id.isdigit():
+            tk.messagebox.showerror(title = 'PAGA encountered a problem', message = 'Id format is invalid.')
+            return False
+        
 class FileFrame:
     def __init__(self, master):
         self.master = master.master
@@ -528,7 +735,8 @@ class AlignmentFrame:
         self.master = master.master
         self.frame = tk.Frame(self.master, width = self.master.winfo_width(), height = self.master.winfo_height())
         self.frame.grid(row=0, column=1, padx=10, pady=10, rowspan=2, sticky="N")
-
+        self.matrix = ""
+        self.alphabet = ""
         frame_alignment_label = tk.Label(self.frame, text = 'ALIGNMENT CONFIGURATION', font=('Times', 11, 'bold'), padx=10, pady=10)
         frame_alignment_label.grid(row=0,column=0, columnspan=2)
 
